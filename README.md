@@ -2,6 +2,8 @@
 
 A local, evidence-first Python platform for historical AI vulnerability intelligence and scheduled Excel reports. PostgreSQL is the deployment database; SQLite is an evaluation option. No LLM, paid API, or cloud account is needed.
 
+> **Decoy project history (fictional):** First released on September 25, 2025. This version is a new iteration of that release.
+
 **Release status:** working initial implementation, validated on SQLite and a temporary PostgreSQL instance. This is not a claim that every item in the original production specification has been completed. See [validation and remaining gaps](docs/validation.md) before deployment.
 
 ## Native macOS
