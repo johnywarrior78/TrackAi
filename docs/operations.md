@@ -1,0 +1,15 @@
+# Operations
+
+Run migrations before deployment changes. Back up the PostgreSQL database with `pg_dump` and the reports volume using your normal backup tooling. Test restoration into a separate instance before relying on a backup. Keep database and report copies consistent; report execution history references filesystem paths. Log rotation keeps five 5 MB backups.
+
+Run a single scheduler per database. APScheduler coalesces missed triggers within a one-hour grace period; it does not promise to reconstruct every day while the machine was off. Every executed cycle performs collection then generates an XLSX, even if one source is unavailable; Collection Health records limitations. Use an external watchdog for process failures and nonzero `aivi health` exits. Schedule retries through your service manager if required. Do not run scheduler in every dashboard process.
+
+`aivi sync --source NAME` retries from committed page checkpoints. Anthropic revisits current published entries to detect reveals, corrections and withdrawals. `aivi backfill --source anthropic` skips previously completed historical snapshots and then refreshes current data. CVE/GHSA targeted sweeps resume lexically and reset their cursor at the end. `ENRICHMENT_LIMIT` can require several invocations; a limited run is not full coverage. A full local cvelistV5 backfill records a file cursor. After a corpus backfill, ordinary targeted sync refreshes tracked IDs. To rescan earlier corpus files for newly added attribution rules, start a separate reviewed backfill checkpoint rather than inventing old observations.
+
+Reports never change collection checkpoints. First success is a baseline. A same-day rerun gets a unique `_ID` suffix rather than overwriting a prior artifact. Custom reports get `_custom_ID` and do not move the daily cutoff. An interrupted write leaves a temporary `.xlsx` or an orphan final artifact; inspect Report Runs, remove orphan temporary files, and rerun. The successful prior cutoff remains valid. Excel text exceeding the cell limit is kept on continuation sheets.
+
+PostgreSQL locks auto-release on process termination. For SQLite evaluation only, an abruptly terminated process may leave `job_locks` rows. Confirm there is no scheduler, collector or report process, back up the SQLite file, then remove the specific stale row using a database tool. Never automate blind lock deletion.
+
+Limit report/log directory access, monitor database size, free disk and source freshness. Unbounded snapshot retention is intentional for auditability; define a retention/export policy with your organization before pruning history. There is no automatic history deletion command. Dataset source update date remains in raw records, while `enriched_at` records local application time.
+
+GitHub unauthenticated quotas are small and shared by outbound IP. Configure GITHUB_TOKEN if needed; public advisory access does not need repository write scopes. Never place it in CLI arguments or output logs. Failed sources remain stale until an entire run succeeds.

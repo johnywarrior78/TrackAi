@@ -1,0 +1,1 @@
+All unit-test records are synthetic and labeled TEST in tests/test_platform.py. CVE-2099-* and GHSA test patterns are not assertions about live findings. Fixtures are never loaded by application startup. Real public data validation is performed separately by explicit CLI collection and is documented in docs/validation.md.

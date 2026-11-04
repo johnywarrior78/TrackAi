@@ -1,0 +1,10 @@
+#!/bin/bash
+# Resolve the project before launching, including when invoked from Finder/launchd.
+set -euo pipefail
+AIVI_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+if [ ! -x "$AIVI_ROOT/.venv/bin/python" ]; then
+    echo "Python environment missing. Run scripts/setup_macos.sh first on macOS; see README.md on other platforms." >&2
+    exit 1
+fi
+cd "$AIVI_ROOT"
+exec "$AIVI_ROOT/.venv/bin/python" -m app.cli "$@"

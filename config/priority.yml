@@ -1,0 +1,4 @@
+# Custom operational priority; never CVSS. Missing values stay unknown.
+p2_cvss: 7.0
+p2_epss: 0.1
+p3_cvss: 4.0

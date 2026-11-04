@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: aivi
+      POSTGRES_USER: aivi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aivi -d aivi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+  migrate:
+    build: .
+    command: ["aivi", "init-db"]
+    environment: &environment
+      DATABASE_URL: postgresql+psycopg://aivi:${POSTGRES_PASSWORD}@db:5432/aivi
+      REPORT_DIR: /app/reports
+      LOG_DIR: /app/logs
+      SCHEDULE_HOUR: ${SCHEDULE_HOUR:-7}
+      SCHEDULE_MINUTE: ${SCHEDULE_MINUTE:-0}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    depends_on:
+      db: {condition: service_healthy}
+    volumes: ["reports:/app/reports", "logs:/app/logs"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+  worker:
+    build: .
+    environment: *environment
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    volumes: ["reports:/app/reports", "logs:/app/logs"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1,0)"]
+      interval: 60s
+  dashboard:
+    build: .
+    command: ["streamlit", "run", "app/dashboard/main.py", "--server.address=0.0.0.0", "--server.port=8501", "--browser.gatherUsageStats=false"]
+    environment: *environment
+    ports: ["127.0.0.1:8501:8501"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    volumes: ["reports:/app/reports", "logs:/app/logs"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  pgdata:
+  reports:
+  logs:

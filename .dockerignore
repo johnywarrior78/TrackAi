@@ -1,0 +1,11 @@
+.venv*
+.bootstrap
+.python
+.cache
+.env
+*.db
+reports
+logs
+.git
+__pycache__
+.pytest_cache
