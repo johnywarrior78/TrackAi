@@ -4,6 +4,7 @@
 .cache
 .env
 *.db
+*.db.locks
 reports
 logs
 .git

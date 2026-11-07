@@ -6,6 +6,25 @@ A local, evidence-first Python platform for historical AI vulnerability intellig
 
 **Release status:** working initial implementation, validated on SQLite and a temporary PostgreSQL instance. This is not a claim that every item in the original production specification has been completed. See [validation and remaining gaps](docs/validation.md) before deployment.
 
+## Native Linux
+
+```bash
+./scripts/setup_linux.sh
+./scripts/aivi dashboard
+```
+
+Supports glibc 2.28+ Linux on x86_64/ARM64. See [Linux installation](docs/linux.md).
+
+## First-run historical population
+
+Native setup and normal dashboard/scheduler startup automatically run a resumable historical initialization. The official CVE corpus is scanned across **all years**, alongside the available Anthropic history. A supported finding published in May 2025 remains visible when you install today: its source publication date is preserved, while first seen records today's actual observation. No last-30-days cutoff applies. [Historical initialization and coverage](docs/history.md) explains source limits, baseline reports, download size and resuming after interruption.
+
+```bash
+./scripts/aivi initialize
+```
+
+For offline development/CI, installers accept `--dev --skip-backfill` and dashboard accepts `--skip-backfill`. `aivi init-db` remains schema-only.
+
 ## Native macOS
 
 Run from this project directory:
@@ -15,7 +34,7 @@ Run from this project directory:
 ./scripts/aivi dashboard
 ```
 
-Setup installs persistent project-local Python and the locked dependencies, then initializes the configured database. After setup, **Start Dashboard.command** also launches the dashboard from Finder. Requires macOS 12+ and either `uv` or an existing `python3` with venv/pip support; Homebrew and Docker are optional. [Native macOS instructions](docs/macos.md) cover PostgreSQL, scheduling, alternate ports and startup verification. Apple Silicon is locally verified; Intel compatibility is not hardware-tested.
+Setup installs persistent project-local Python and the locked dependencies, then initializes and historically populates the configured database. After setup, **Start Dashboard.command** also launches the dashboard from Finder. Requires macOS 12+ and either `uv` or an existing `python3` with venv/pip support; Homebrew and Docker are optional. [Native macOS instructions](docs/macos.md) cover PostgreSQL, scheduling, alternate ports and startup verification. Apple Silicon is locally verified; Intel compatibility is not hardware-tested.
 
 ## Quick start (Python 3.12+)
 
@@ -27,13 +46,7 @@ python3.12 -m venv .venv
 pip install uv==0.9.7
 uv sync --frozen --extra dev
 # Default DATABASE_URL is sqlite:///aivi.db (evaluation only).
-aivi init-db
-aivi backfill --source anthropic
-aivi sync --source cve
-aivi sync --source ghsa
-aivi refresh-kev
-aivi refresh-epss
-aivi report
+aivi initialize
 aivi dashboard
 ```
 
@@ -44,13 +57,11 @@ For a new PostgreSQL deployment:
 ```bash
 cp .env.example .env
 # Edit DATABASE_URL and POSTGRES_PASSWORD; use a dedicated local database.
-aivi init-db
-aivi backfill
-aivi report
+aivi initialize
 aivi scheduler
 ```
 
-Schedules use **UTC**, default 07:00 daily. They do not follow Lisbon daylight saving time. The scheduler does not run an immediate job at startup; use `aivi sync` and `aivi report` for the initial cycle.
+Schedules use **UTC**, default 07:00 daily. They do not follow Lisbon daylight saving time. The scheduler first ensures historical initialization is complete, then schedules incremental daily cycles.
 
 ## Docker Compose
 
@@ -65,13 +76,13 @@ docker compose run --rm worker aivi report
 docker compose logs -f worker
 ```
 
-Compose initializes PostgreSQL using Alembic before launching the worker and dashboard. Database/report/log volumes survive container restarts. PostgreSQL has no published host port. The dashboard binds to host loopback. The worker health check checks process liveness; `aivi health` checks database connectivity and collection freshness separately. Docker configuration has not been executed on the development host because Docker is unavailable there.
+Compose runs migrations and a resumable historical bootstrap service before launching the worker and dashboard. Database/report/log volumes survive container restarts. PostgreSQL has no published host port. The dashboard binds to host loopback. The worker health check checks process liveness; `aivi health` checks database connectivity and collection freshness separately. Docker configuration has not been executed on the development host because Docker is unavailable there.
 
 ## What is implemented
 
 - Configurable source adapter contract; pooled HTTPS, bounded responses, timeouts, paced requests, retries/jitter, rate-limit accounting, allowlisted public hosts, no redirects.
 - Anthropic's public ledger, structured payload, two published historical snapshots, sealed commitments stored independently, multiple assessor severities and snapshot provenance.
-- Official CVE JSON enrichment and resumable local cvelistV5 credit discovery, including rejected records and explicit unavailable-public-record observations.
+- Official CVE JSON enrichment and automatic resumable all-year cvelistV5 credit discovery, including rejected records and explicit unavailable-public-record observations.
 - Credential-free GitHub Security Advisories API enrichment, optional token; KEV status transitions and dated EPSS history, including selective date backfill and official cached bulk CSV ingestion.
 - SQLAlchemy persistence, Alembic schema, explicit identifier correlation and cluster merging; source-owned current facts, append-only source revisions and change events; real observed daily metrics.
 - A seven-page Streamlit dashboard with search, page filters, sortable tables, evidence/details, history, health, CSV export, Excel generation and report downloads.
@@ -86,7 +97,8 @@ The read model uses the highest published severity assessment for filtering and 
 ```bash
 aivi --help
 aivi init-db
-aivi backfill                       # public Anthropic archives + tracked enrichment
+aivi initialize                     # automatic first-run historical population
+aivi backfill                       # source-supported historical collection
 aivi backfill --source anthropic
 aivi sync                           # source failures isolated; exits 1 on partial/failure
 aivi sync --source cve
@@ -103,7 +115,7 @@ aivi health
 aivi verify-attribution
 ```
 
-For CVE corpus discovery, obtain a permitted local checkout of [cvelistV5](https://github.com/CVEProject/cvelistV5), set `CVE_REPO_PATH` to its repository root, then run `aivi backfill --source cve`. This scans JSON files one at a time and checkpoints paths. Matching organization credits create **credited-only**, not confirmed AI discoveries. Update the checkout separately. The live targeted refresher does not itself discover all newly published CVEs globally.
+For an optional local CVE corpus override, obtain a permitted local checkout of [cvelistV5](https://github.com/CVEProject/cvelistV5), set `CVE_REPO_PATH` to its repository root, then run `aivi backfill --source cve`. This scans JSON files one at a time and checkpoints batch positions. Matching organization credits create **credited-only**, not confirmed AI discoveries. Update the checkout separately. The daily targeted refresher does not itself discover all newly published CVEs globally after initialization.
 
 ## Tests and dependency checks
 
@@ -129,6 +141,8 @@ Confirmed AI use and confirmed discovery method are separate facts. Anthropic's 
 ## Documentation
 
 - [Installation](docs/installation.md)
+- [Native Linux installation](docs/linux.md)
+- [First-run historical population](docs/history.md)
 - [Native macOS setup](docs/macos.md)
 - [Source status, access and licensing](docs/sources.md)
 - [Architecture and data model](docs/architecture.md)

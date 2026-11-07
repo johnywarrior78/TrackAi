@@ -1,6 +1,6 @@
 # Installation
 
-For macOS, use the [native setup and launchers](macos.md); they install a persistent project-local Python runtime and handle working directories containing spaces.
+For Linux, use the [native Linux installer](linux.md). For macOS, use the [native setup and launchers](macos.md); they install a persistent project-local Python runtime and handle working directories containing spaces.
 
 Use Python 3.12 or newer. Supported deployment database: PostgreSQL 17 (16+ should work but must be validated for your deployment). Install dependencies using `uv sync --frozen`; `uv.lock` locks direct and transitive packages. `pyproject.toml` is the package manifest. The project root must be the working directory for CLI commands, migrations and configuration.
 
@@ -28,4 +28,6 @@ Other settings:
 
 Scheduler settings use UTC throughout. Start the dashboard with `aivi dashboard`, which binds localhost. For a container or reverse proxy, invoke Streamlit directly using a chosen bind address. Do not expose it to untrusted networks without authentication and TLS.
 
-Run `aivi init-db`, `aivi backfill`, then `aivi report`. A source outage may cause backfill to exit nonzero while other sources succeed; rerun after examining Source Health. Review `aivi health` rather than assuming a zero-exit scheduler implies complete data.
+Run `aivi initialize` for migrations, first-run historical population and a baseline report. `aivi init-db` is schema-only. A source outage may cause backfill to exit nonzero while other sources succeed; rerun after examining Source Health. Review `aivi health` rather than assuming a zero-exit scheduler implies complete data.
+
+Default automatic historical population and resume semantics are documented in [history.md](history.md). AUTO_BACKFILL defaults to true; HISTORY_BATCH_SIZE defaults to 1000; CVE_ARCHIVE_MAX_BYTES defaults to 2 GiB.

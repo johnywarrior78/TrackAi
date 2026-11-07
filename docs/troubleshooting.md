@@ -12,7 +12,7 @@
 
 **Empty New Vulnerabilities:** first successful workbook is a baseline; subsequent successful daily reports only include observations after the preceding report cutoff. Use inventory sheets or a custom export for historical inventory.
 
-**Job already running:** another process owns the database lock. PostgreSQL releases it on disconnect. SQLite is evaluation only; see the documented stale-lock recovery procedure after verifying process termination.
+**Job already running:** another process owns the database lock. PostgreSQL releases it on disconnect. SQLite is evaluation only and now uses native OS file locks, which release automatically when the owning process exits.
 
 **No observations before installation:** expected. Archived source snapshot dates are preserved separately; the application does not fabricate historical first-seen dates or daily aggregates.
 
@@ -25,3 +25,5 @@
 **Finder launches from the wrong directory:** double-click `Start Dashboard.command`, or use the absolute path to `scripts/aivi`. Both launchers anchor configuration/data paths to the project. No environment activation is required.
 
 **Dashboard port occupied:** use `./scripts/aivi dashboard --port 8502` and open `http://127.0.0.1:8502`.
+
+**First setup appears busy or historical initialization is incomplete:** initial CVE history can require a large download and all-year scan. Progress/checkpoints are logged. Retry `aivi initialize`; completed batches are preserved. Do not substitute a recent-date cutoff. The explicit offline flags are described in [history.md](history.md).

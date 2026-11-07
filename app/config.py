@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     github_token: str = ""
     anthropic_snapshots: str = "2026-05-22-1027,2026-08-26-1155"
     cve_repo_path: str = ""
+    auto_backfill: bool = True
+    history_batch_size: int = Field(1000, ge=1, le=10000)
+    cve_archive_max_bytes: int = Field(2 * 1024**3, ge=1)
     cache_dir: Path = Path(".cache")
     epss_bulk_threshold: int = Field(1000, ge=1)
     enrichment_limit: int = Field(500, ge=1)

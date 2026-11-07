@@ -14,7 +14,8 @@ The CLI, scheduler and dashboard share the same settings, database, read model a
 - `epss_history`: dated probabilities/percentiles with unique `(CVE,date)`.
 - `daily_metrics`: actual daily aggregate observations, never reconstructed from present state.
 - `report_runs`: independent successful report cutoffs, baseline/custom flags and artifact paths.
-- `job_locks`: fail-closed SQLite evaluation locks. PostgreSQL uses connection-scoped advisory locks instead.
+- `job_locks`: legacy table retained for migration compatibility. PostgreSQL uses connection-scoped advisory locks; SQLite on macOS/Linux uses OS file locks released automatically on process exit.
+- `application_settings`: persistent historical initialization state, separate from collection/report checkpoints.
 
 Products, versions, attribution evidence and severity are typed JSON fact documents rather than separate organization/product lookup tables. This keeps conflicting source representations intact and avoids pretending their semantics are identical. Foreign keys and unique constraints protect ownership and identity; indexes cover identifiers, finding fact lookups and change dates. Additional dedicated dimensions and JSON indexes should follow measured query needs. This is an explicit deviation from the recommended fully normalized entity list.
 
@@ -34,4 +35,6 @@ Workbook serialization uses write-only worksheets and batches database reads. Su
 
 ## Scheduling and concurrency
 
-One scheduler owns a database-wide scheduler lock for its lifetime. Collection/report jobs are serialized independently. PostgreSQL advisory locks auto-release on connection/process death, with no expiring lease overlap. SQLite stale locks need explicit operator recovery. A manual collection can interleave between sources in a scheduled cycle; each source transaction and report remains consistent.
+One scheduler owns a database-wide scheduler lock for its lifetime. Collection/report jobs are serialized independently. PostgreSQL advisory locks auto-release on connection/process death, with no expiring lease overlap. Native SQLite file locks and PostgreSQL advisory locks release on process exit, so interrupted initialization can resume. A manual collection can interleave between sources in a scheduled cycle; each source transaction and report remains consistent.
+
+Historical first-run orchestration and the pinned streaming CVE corpus scan are described in [history.md](history.md). Publication/discovery date filters now execute before result pagination.

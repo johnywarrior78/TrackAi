@@ -39,6 +39,30 @@ def init_db():
 
 
 @cli.command()
+def initialize(
+    force: bool = typer.Option(
+        False, help="Retry initialization even after it completed."
+    ),
+):
+    """Migrate, populate all available historical source records, and write a baseline."""
+    init_db()
+    from app.bootstrap import populate
+
+    settings, engine, sessions = runtime()
+    typer.echo(
+        "Historical initialization may download a large official CVE snapshot; committed batches resume after interruption."
+    )
+    outcome = populate(engine, sessions, settings, force=force)
+    typer.echo(json.dumps(outcome))
+    if outcome["status"] not in ("complete", "disabled"):
+        typer.echo(
+            "Historical population incomplete. Rerun aivi initialize to resume.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+@cli.command()
 def sync(
     source: Optional[str] = typer.Option(
         None, help="One source; otherwise all enabled sources"
@@ -128,8 +152,14 @@ def report(start: Optional[str] = None, end: Optional[str] = None):
 @cli.command()
 def dashboard(
     port: int = typer.Option(8501, min=1, max=65535, help="Local dashboard TCP port."),
+    skip_backfill: bool = typer.Option(
+        False,
+        help="Start without first-run historical population (offline evaluation).",
+    ),
 ):
-    """Start the dashboard on localhost (default port 8501)."""
+    """Initialize history on first run, then start the localhost dashboard."""
+    if Settings().auto_backfill and not skip_backfill:
+        initialize(False)
     subprocess.run(
         [
             sys.executable,
@@ -212,6 +242,8 @@ def scheduler():
     """One UTC scheduled collection/report cycle daily; one scheduler per database."""
     from apscheduler.schedulers.blocking import BlockingScheduler
 
+    if Settings().auto_backfill:
+        initialize(False)
     settings, engine, sessions = runtime()
 
     def job():

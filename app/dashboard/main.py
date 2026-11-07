@@ -258,14 +258,50 @@ with sessions() as s:
         page_number = st.sidebar.number_input(
             "Result page (500 records)", min_value=1, step=1
         )
+        date_field = st.sidebar.selectbox(
+            "Date field", ["Publication Date", "Discovery Date", "First Seen"]
+        )
+        date_start = date_end = None
+        if st.sidebar.checkbox("Filter date range"):
+            earliest = s.scalar(select(func.min(Vulnerability.published)))
+            try:
+                earliest = (
+                    datetime.fromisoformat(earliest.replace("Z", "+00:00")).date()
+                    if earliest
+                    else now().date()
+                )
+            except ValueError:
+                earliest = now().date()
+            da = st.sidebar.date_input("From", value=earliest)
+            db = st.sidebar.date_input("Through", value=now().date())
+            if da > db:
+                st.error("Start date must be on or before the end date.")
+                st.stop()
+            if date_field == "First Seen":
+                date_start = datetime.combine(
+                    da, datetime.min.time(), tzinfo=timezone.utc
+                )
+                date_end = datetime.combine(
+                    db + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc
+                )
+            else:
+                date_start = da.isoformat()
+                date_end = (db + timedelta(days=1)).isoformat()
         data = list(
             records(
-                s, settings, search=search, limit=500, offset=(page_number - 1) * 500
+                s,
+                settings,
+                search=search,
+                limit=500,
+                offset=(page_number - 1) * 500,
+                date_field=date_field,
+                date_start=date_start,
+                date_end=date_end,
             )
         )
         df = pd.DataFrame(data)
         st.caption(
-            f"{total} unique tracked findings. Interactive charts and filters apply to the current 500-record page; use reports for full inventory exports."
+            f"{total} unique tracked findings. Date filters search the full historical inventory before pagination. Other filters and charts apply to this 500-record page; use reports for full inventory exports."
         )
         if df.empty:
             st.info(
@@ -294,14 +330,6 @@ with sessions() as s:
         for col, bounds in [("CVSS Score", cvss), ("EPSS Score", epss)]:
             values = pd.to_numeric(df[col], errors="coerce")
             df = df[values.between(*bounds) | (values.isna() & include_unknown)]
-        date_field = st.sidebar.selectbox(
-            "Date field", ["Publication Date", "Discovery Date", "First Seen"]
-        )
-        if st.sidebar.checkbox("Filter date range"):
-            da = st.sidebar.date_input("From", value=now().date() - timedelta(days=30))
-            db = st.sidebar.date_input("Through", value=now().date())
-            dates = pd.to_datetime(df[date_field], errors="coerce", utc=True).dt.date
-            df = df[(dates >= da) & (dates <= db)]
         if page == "Vulnerability Explorer":
             st.dataframe(df, width="stretch", hide_index=True)
             clean = df.map(safe)

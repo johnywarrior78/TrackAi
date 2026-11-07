@@ -8,7 +8,7 @@ RUN uv sync --frozen --no-dev
 COPY migrations ./migrations
 COPY alembic.ini ./
 COPY config ./config
-RUN useradd --uid 10001 --create-home aivi && mkdir -p /app/reports /app/logs && chown -R aivi:aivi /app
+RUN useradd --uid 10001 --create-home aivi && mkdir -p /app/reports /app/logs /app/cache && chown -R aivi:aivi /app
 USER 10001
 ENV PATH="/app/.venv/bin:$PATH"
 CMD ["aivi", "scheduler"]

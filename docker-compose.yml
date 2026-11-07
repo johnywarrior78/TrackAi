@@ -23,17 +23,28 @@ services:
       SCHEDULE_HOUR: ${SCHEDULE_HOUR:-7}
       SCHEDULE_MINUTE: ${SCHEDULE_MINUTE:-0}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      AUTO_BACKFILL: ${AUTO_BACKFILL:-true}
+      CACHE_DIR: /app/cache
     depends_on:
       db: {condition: service_healthy}
     volumes: ["reports:/app/reports", "logs:/app/logs"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+  bootstrap:
+    build: .
+    command: ["aivi", "initialize"]
+    environment: *environment
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    volumes: ["reports:/app/reports", "logs:/app/logs", "cache:/app/cache"]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
   worker:
     build: .
     environment: *environment
     depends_on:
-      migrate: {condition: service_completed_successfully}
-    volumes: ["reports:/app/reports", "logs:/app/logs"]
+      bootstrap: {condition: service_completed_successfully}
+    volumes: ["reports:/app/reports", "logs:/app/logs", "cache:/app/cache"]
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
@@ -46,8 +57,8 @@ services:
     environment: *environment
     ports: ["127.0.0.1:8501:8501"]
     depends_on:
-      migrate: {condition: service_completed_successfully}
-    volumes: ["reports:/app/reports", "logs:/app/logs"]
+      bootstrap: {condition: service_completed_successfully}
+    volumes: ["reports:/app/reports", "logs:/app/logs", "cache:/app/cache"]
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
@@ -60,3 +71,4 @@ volumes:
   pgdata:
   reports:
   logs:
+  cache:

@@ -13,6 +13,7 @@ HOSTS = {
     "api.github.com",
     "api.first.org",
     "epss.cyentia.com",
+    "codeload.github.com",
 }
 
 
@@ -52,6 +53,81 @@ class PublicHTTP:
 
     def close(self):
         self.client.close()
+
+    def download(self, url, path, max_bytes):
+        """Stream a public archive to disk; retain partial downloads for retries.
+
+        This separate path never raises the small JSON response memory limit.
+        Only the fixed CVEProject codeload endpoint is eligible for large files.
+        """
+        from pathlib import Path
+        import os
+        import re
+
+        if not re.fullmatch(
+            r"https://codeload\.github\.com/CVEProject/cvelistV5/tar\.gz/[0-9a-f]{40}",
+            url,
+        ):
+            raise ValueError(
+                "Large archive downloads require a pinned official CVE snapshot"
+            )
+        validate_url(url)
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        partial = path.with_suffix(path.suffix + ".part")
+        for attempt in range(self.settings.http_retries):
+            offset = partial.stat().st_size if partial.exists() else 0
+            headers = {"Range": f"bytes={offset}-"} if offset else {}
+            try:
+                with self.client.stream(
+                    "GET",
+                    url,
+                    headers=headers,
+                    timeout=httpx.Timeout(
+                        self.settings.http_timeout,
+                        read=max(180, self.settings.http_timeout),
+                    ),
+                ) as response:
+                    if response.status_code in (429, 500, 502, 503, 504):
+                        if response.status_code == 429:
+                            self.rate_limits += 1
+                        raise httpx.HTTPStatusError(
+                            "Archive temporarily unavailable",
+                            request=response.request,
+                            response=response,
+                        )
+                    response.raise_for_status()
+                    append = response.status_code == 206 and offset > 0
+                    if response.status_code == 206 and not response.headers.get(
+                        "content-range", ""
+                    ).startswith(f"bytes {offset}-"):
+                        raise ValueError("Archive resume offset mismatch")
+                    size = offset if append else 0
+                    with partial.open("ab" if append else "wb") as handle:
+                        os.chmod(partial, 0o600)
+                        for chunk in response.iter_bytes(chunk_size=1024 * 1024):
+                            size += len(chunk)
+                            if size > max_bytes:
+                                raise ValueError(
+                                    "CVE archive exceeds configured download limit"
+                                )
+                            handle.write(chunk)
+                    os.replace(partial, path)
+                    return path
+            except (
+                httpx.NetworkError,
+                httpx.TimeoutException,
+                httpx.HTTPStatusError,
+            ) as exc:
+                self.errors += 1
+                if isinstance(
+                    exc, httpx.HTTPStatusError
+                ) and exc.response.status_code not in (429, 500, 502, 503, 504):
+                    raise
+                if attempt + 1 == self.settings.http_retries:
+                    raise
+                time.sleep(2**attempt + random.random())
+        raise RuntimeError("Archive retry budget exhausted")
 
     def get(self, url, params=None, binary=False):
         validate_url(url)

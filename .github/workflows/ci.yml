@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: ./scripts/setup_macos.sh --dev
+      - run: ./scripts/setup_macos.sh --dev --skip-backfill
       - run: .venv/bin/python -m pytest -q
       - run: .venv/bin/python scripts/smoke_native.py
       - run: .venv/bin/ruff check app tests scripts --select F
@@ -29,7 +29,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install uv==0.9.7
-      - run: uv sync --frozen --extra dev
+      - run: ./scripts/setup_linux.sh --dev --skip-backfill
+      - run: .venv/bin/python scripts/smoke_native.py
       - run: uv run pytest -q
       - run: uv run pytest -q
         env:

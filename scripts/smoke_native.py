@@ -40,6 +40,7 @@ def main():
             REPORT_DIR=str(folder / "test reports"),
             LOG_DIR=str(folder / "test logs"),
             STREAMLIT_BROWSER_GATHER_USAGE_STATS="false",
+            AUTO_BACKFILL="false",
         )
         for command in ("init-db", "report"):
             subprocess.run(

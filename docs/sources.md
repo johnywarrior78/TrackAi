@@ -5,7 +5,7 @@ Validated on 2026-11-03. Public sources can change. A successful HTTP request do
 | Source | Integration | Validation / limitations |
 |---|---|---|
 | Anthropic CVD | Directly linked `data/ledger.json` and `data/payload.json`, current and published archives | Real current/May/August snapshots ingested; unknown/unrevealed fields remain unknown; no commitment reversal |
-| CVE Program | Official cvelistV5 raw JSON by tracked CVE; optional local corpus scan | Live records enriched; missing public records recorded and retried; full corpus historical scan available locally, not downloaded by default |
+| CVE Program | Automatic pinned full-corpus history scan, official raw JSON enrichment, optional local checkout | Live records enriched; missing public records recorded and retried; all-year corpus downloaded/streamed automatically during first initialization |
 | GitHub Advisories | Public REST `GET /advisories?cve_id=...` | Credential-free live requests succeeded; optional token raises quota; checkpoints and retries handle rate limiting; currently enrichment of tracked CVEs/GHSAs, not global discovery |
 | CISA KEV | Official cisagov/kev-data public JSON | Live full catalog retrieval; matched/nonmatched states persisted for tracked CVEs; changes retained |
 | FIRST EPSS | Public FIRST API, batches of 50 CVEs | Live dated scores stored; missing scores remain unknown; selective history up to 365 days per command; official dated bulk CSV archive automatically used above EPSS_BULK_THRESHOLD, cached once per date |
@@ -21,4 +21,4 @@ The [CVE data repository](https://github.com/CVEProject/cvelistV5) has its own t
 
 No arbitrary source URLs are fetched. Adapters use fixed public HTTPS endpoints, and no exploit, attached reproducer, private disclosure, or commitment preimage search is executed. Robots restrictions apply if a future adapter scrapes HTML; these adapters use explicitly linked JSON and documented APIs.
 
-Coverage is incomplete by nature. In particular, the current initial live inventory is Anthropic-ledger based; the other monitored providers do not acquire discoveries automatically without a CVE corpus scan and attribution review. Raw provider counts must not be interpreted as model capability rankings.
+Coverage is incomplete by nature. In particular, the current initial live inventory is Anthropic-ledger based; the other monitored providers do not acquire discoveries automatically beyond source-supported CNA/ADP credits and attribution review. Raw provider counts must not be interpreted as model capability rankings.

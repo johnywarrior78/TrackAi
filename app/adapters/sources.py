@@ -5,7 +5,6 @@ import httpx
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import timedelta
-import json
 from sqlalchemy import select
 from app.database.models import Identifier, now
 from app.domain import Record, credits_claim, cvss_assessments
@@ -178,6 +177,21 @@ class CVE(Adapter):
         "https://raw.githubusercontent.com/CVEProject/cvelistV5/main/cves/deltaLog.json"
     )
 
+    def attributions(self, r):
+        containers = r.get("containers", {})
+        sources = [containers.get("cna", {}), *containers.get("adp", [])]
+        credits = "\n".join(
+            str(c.get("value", ""))
+            for source in sources
+            for c in source.get("credits", [])
+        )
+        cve = r["cveMetadata"]["cveId"]
+        return credits_claim(
+            credits,
+            f"https://www.cve.org/CVERecord?id={cve}",
+            r["cveMetadata"].get("datePublished"),
+        )
+
     def normalize(self, r):
         metadata = r["cveMetadata"]
         cve = metadata["cveId"]
@@ -187,8 +201,7 @@ class CVE(Adapter):
         description = next(
             (d["value"] for d in descriptions if d.get("lang") == "en"), None
         )
-        credits = "\n".join(str(c.get("value", "")) for c in cna.get("credits", []))
-        attrs = credits_claim(credits, url, metadata.get("datePublished"))
+        attrs = self.attributions(r)
         facts = {
             "availability": [{"public_record": True}],
             "severity": cvss_assessments(cna.get("metrics", [])),
@@ -234,27 +247,12 @@ class CVE(Adapter):
         )
 
     def fetch(self, checkpoint, backfill=False):
-        # Target official records for the tracked identifiers, oldest enriched first.
-        # Backfill repository mode is resumable, streams one file at a time, and
-        # discovers credit-only affiliations without asserting AI usage.
-        if backfill and self.settings.cve_repo_path:
-            root = Path(self.settings.cve_repo_path).resolve() / "cves"
-            cursor = checkpoint.get("file", "")
-            for year in sorted(root.iterdir()):
-                if not year.is_dir():
-                    continue
-                for bucket in sorted(year.iterdir()):
-                    if not bucket.is_dir():
-                        continue
-                    for path in sorted(bucket.glob("CVE-*.json")):
-                        rel = str(path.relative_to(root))
-                        if rel <= cursor:
-                            continue
-                        yield Page(
-                            [self.normalize(json.loads(path.read_text()))],
-                            {"file": rel},
-                        )
+        if backfill:
+            from app.adapters.history import history_pages
+
+            yield from history_pages(self, checkpoint)
             return
+        saved = {k: v for k, v in checkpoint.items() if k != "cve"}
         with self.sessions() as s:
             ids = list(
                 s.scalars(
@@ -290,12 +288,12 @@ class CVE(Adapter):
                             create=False,
                         )
                     ],
-                    {"cve": cve},
+                    {**saved, "cve": cve},
                 )
                 continue
-            yield Page([self.normalize(raw)], {"cve": cve})
+            yield Page([self.normalize(raw)], {**saved, "cve": cve})
         if len(remaining) <= self.settings.enrichment_limit:
-            yield Page([], {})
+            yield Page([], saved)
 
 
 class GHSA(Adapter):

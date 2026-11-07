@@ -1,9 +1,6 @@
 from contextlib import contextmanager
-from uuid import uuid4
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from app.database.models import Lock
 
 
 def connect(url):
@@ -25,7 +22,7 @@ def connect(url):
 def job_lock(engine, sessions, name):
     """Connection-scoped PostgreSQL lock auto-releases after process death.
 
-    SQLite evaluation lock fails closed; remove only after confirming worker died.
+    Native SQLite evaluation uses OS file locks, released automatically on crash.
     """
     import hashlib
 
@@ -39,17 +36,28 @@ def job_lock(engine, sessions, name):
             finally:
                 conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": key})
     else:
-        owner = str(uuid4())
-        with sessions.begin() as session:
-            session.add(Lock(name=name, owner=owner))
+        import fcntl
+        import os
+        from pathlib import Path
+        import tempfile
+
+        database = engine.url.database
+        if database and database != ":memory:":
+            path = Path(database).resolve()
+            folder = path.parent / (path.name + ".locks")
+        else:
+            folder = (
+                Path(tempfile.gettempdir()) / f"aivi-locks-{os.getpid()}-{id(engine)}"
+            )
+        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+        lockfile = folder / hashlib.sha256(name.encode()).hexdigest()
+        descriptor = os.open(lockfile, os.O_CREAT | os.O_RDWR, 0o600)
+        with os.fdopen(descriptor, "a+") as handle:
             try:
-                session.flush()
-            except IntegrityError as exc:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
                 raise RuntimeError(f"Job already running: {name}") from exc
-        try:
-            yield
-        finally:
-            with sessions.begin() as session:
-                obj = session.get(Lock, name)
-                if obj and obj.owner == owner:
-                    session.delete(obj)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)

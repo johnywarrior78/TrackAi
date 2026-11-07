@@ -12,7 +12,7 @@ cd "/path/to/ai-vulnerability-intelligence"
 ./scripts/aivi dashboard
 ```
 
-Open [the dashboard](http://127.0.0.1:8501). Stop it with Control-C. After setup, you can also double-click **Start Dashboard.command** in Finder. This launcher changes to the project directory, applies migrations and starts the dashboard. Neither launcher fetches vulnerability sources automatically.
+Open [the dashboard](http://127.0.0.1:8501). Stop it with Control-C. After setup, you can also double-click **Start Dashboard.command** in Finder. This launcher changes to the project directory, applies migrations and starts the dashboard. Normal setup and dashboard startup populate historical sources automatically on first use. See [historical initialization](history.md); the initial official CVE corpus download may be large.
 
 Setup needs either an installed `uv` command or an existing `python3` with venv/pip support. If using Homebrew, `brew install uv` supplies that prerequisite. Otherwise the script uses `python3` to bootstrap the pinned uv version locally, then installs the Python version in `.python-version`. It never changes Apple's system Python. See [uv's Python installation documentation](https://docs.astral.sh/uv/guides/install-python/) for the managed runtime mechanism.
 
@@ -57,7 +57,7 @@ The role command prompts for your chosen database password. Configure `DATABASE_
 ## Validate locally
 
 ```bash
-./scripts/setup_macos.sh --dev
+./scripts/setup_macos.sh --dev --skip-backfill
 .venv/bin/python -m pytest -q
 .venv/bin/python scripts/smoke_native.py
 ```

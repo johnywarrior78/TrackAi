@@ -43,12 +43,36 @@ def join(values):
     return "; ".join(dict.fromkeys(str(x) for x in values if x is not None and x != ""))
 
 
-def records(s, settings, start=None, end=None, search="", limit=None, offset=0):
+def records(
+    s,
+    settings,
+    start=None,
+    end=None,
+    search="",
+    limit=None,
+    offset=0,
+    date_field=None,
+    date_start=None,
+    date_end=None,
+):
     query = select(Vulnerability).order_by(Vulnerability.id)
     if start:
         query = query.where(Vulnerability.first_seen >= start)
     if end:
         query = query.where(Vulnerability.first_seen < end)
+    if date_field:
+        fields = {
+            "Publication Date": Vulnerability.published,
+            "Discovery Date": Vulnerability.discovered,
+            "First Seen": Vulnerability.first_seen,
+        }
+        if date_field not in fields:
+            raise ValueError("Unknown date field")
+        column = fields[date_field]
+        if date_start:
+            query = query.where(column >= date_start)
+        if date_end:
+            query = query.where(column < date_end)
     if search:
         idquery = select(Identifier.vulnerability_id).where(
             Identifier.value.ilike("%" + search + "%")
@@ -197,6 +221,11 @@ def health(s):
         if source.checkpoint.get("cve") or source.checkpoint.get("identifier"):
             warnings.append("Enrichment sweep incomplete; resume on next run")
         if source.name == "cve":
+            history = source.checkpoint.get("history", {})
+            if history and not history.get("complete"):
+                warnings.append(
+                    f"Historical backfill incomplete ({history.get('scanned', 0)} CVEs scanned); run aivi initialize to resume"
+                )
             unavailable = s.scalar(
                 select(func.count())
                 .select_from(Fact)

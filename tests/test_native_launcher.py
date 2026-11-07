@@ -52,7 +52,7 @@ def test_dashboard_port_and_localhost(monkeypatch):
     monkeypatch.setattr(
         "app.cli.subprocess.run", lambda args, **kwargs: calls.append(args)
     )
-    result = CliRunner().invoke(cli, ["dashboard", "--port", "8502"])
+    result = CliRunner().invoke(cli, ["dashboard", "--port", "8502", "--skip-backfill"])
     assert result.exit_code == 0
     assert calls[0][calls[0].index("--server.headless") + 1] == "true"
     assert calls[0][calls[0].index("--browser.gatherUsageStats") + 1] == "false"
