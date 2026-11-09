@@ -8,6 +8,8 @@ A local, evidence-first Python platform for historical AI vulnerability intellig
 
 ## Native Linux
 
+[Always-running Linux services guide](https://johnywarrior78.github.io/TrackAi/) — commands for starting the daily collector and local dashboard at boot. Also available [in this repository](docs/services.md).
+
 ```bash
 ./scripts/setup_linux.sh
 ./scripts/aivi dashboard

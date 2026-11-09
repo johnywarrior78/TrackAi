@@ -45,6 +45,8 @@ To install without downloading source intelligence:
 
 ## PostgreSQL and services
 
+See [always-running services](services.md) for Kali/Linux systemd commands to start the collector and local dashboard automatically at boot.
+
 Install and start PostgreSQL using your distribution's supported packages. Create a dedicated role/database, set `DATABASE_URL=postgresql+psycopg://USER:URL_ENCODED_PASSWORD@localhost:5432/aivi` in `.env`, then run `./scripts/aivi initialize`. Switching databases does not migrate the SQLite inventory automatically.
 
 Run `./scripts/aivi scheduler` in a long-lived process or systemd service using the absolute launcher path. Its working directory is anchored by the launcher. The initial historical population happens immediately before scheduling; subsequent scheduled cycles are incremental. All schedules use UTC. For authenticated multiuser access use the reverse-proxy/TLS guidance in [security.md](security.md).
